@@ -2,7 +2,8 @@
 from pytube import YouTube
 from pytube.exceptions import VideoUnavailable
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
-import os , time
+import os , requests , json
+import urllib.request
 
 
 # ---------- CHECK URL TYPE ----------
@@ -16,11 +17,53 @@ def main():
             youtube_extraction(yt)
         except VideoUnavailable:
             print(f'The Youtube video {url} is unavailable.')
+    elif(url.startswith('https://www.reddit.com/')):
+        try:
+            reddit_extraction(url)  
+        except VideoUnavailable:
+            print(f'The Reddit video {url} is unavailable.')
     else:
-        print('not youtube video')
+        print('Try Another Link')
 
 
 # ---------- REDDIT ----------
+
+def reddit_extraction(rd):
+    rd=rd+".json"
+    response = requests.get(rd)        
+    if response.status_code == 200:
+        json_data = response.text.strip()
+        #print(json_data)
+        text="fallback_url"
+        index = json_data.find(text)
+        text2="source=fallback"
+        index2 = json_data.find(text2)        
+        video_url=json_data[index+16:index2+15]
+        audio_url=video_url.replace("DASH_1440", "DASH_audio")
+        audio_url=audio_url.replace("DASH_1080", "DASH_audio")
+        audio_url=audio_url.replace("DASH_720", "DASH_audio")
+        audio_url=audio_url.replace("DASH_480", "DASH_audio")
+        audio_url=audio_url.replace("DASH_360", "DASH_audio")
+        print(video_url," heyyy ",audio_url)
+        urllib.request.urlretrieve(video_url,filename="video.mp4")
+        urllib.request.urlretrieve(audio_url,filename="audio.mp4")
+        video_clip = VideoFileClip("video.mp4")
+        audio_clip = AudioFileClip("audio.mp4")
+        final_clip = video_clip.set_audio(audio_clip)
+        final_clip.write_videofile("download.mp4")
+        video_clip.close()
+        audio_clip.close();
+        os.remove('video.mp4')
+        os.remove('audio.mp4')
+
+    elif response.status_code == 429:
+        print("Too Many Requests. Try again later")
+    else:
+        print("ERROR"+response.status_code)
+        
+    
+    
+
 
 
 
@@ -33,6 +76,7 @@ def main():
 
 
 # ---------- YOUTUBE ----------
+
 def youtube_extraction(yt):
     f2160 = 0; # If you want 2160p videos then make the value as 1
     f1440 = 0; # If you want 1440p videos then make the value as 1
